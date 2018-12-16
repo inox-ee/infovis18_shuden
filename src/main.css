@@ -1,0 +1,280 @@
+        html {
+            width: 100%;
+            height: 100%;
+        }
+
+        body {
+            margin: 0%;
+            font-family: "ten-mincho", serif;
+            font-feature-settings: "ss02";
+            background-color: whitesmoke;
+            width: 100%;
+            height: 100%;
+            position: absolute;
+        }
+
+        #svgMap {
+            width: 100%;
+            height: 100%;
+            top: 0px;
+            left: 0px;
+            position: absolute;
+            z-index: 0;
+        }
+
+        .title {
+            background-color: #3f51b5;
+            width: 100%;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.26);
+            position: fixed;
+            z-index: 10;
+        }
+
+        .title h1 {
+            color: white
+        }
+
+        .title .icons {
+            display: flex
+        }
+
+        .title .icons img {
+            margin: 15px 10px;
+            height: 60px;
+            width: 60px
+        }
+
+        .sb-search {
+            margin-right: 20px;
+        }
+
+        .canvas {
+            margin: 0% 0%;
+            width: 100%;
+            height: 100%;
+        }
+
+        @media screen and (max-width:1000px) {
+
+            /* 画面サイズ100opx以下 */
+            .title h1 {
+                margin-bottom: 0%;
+                font-size: 25px;
+            }
+
+            .title .icons img {
+                margin: 16.75px 10px 0px 10px;
+                height: 30px;
+                width: 30px;
+            }
+
+            .title .icons {
+                display: none
+            }
+
+            .background {
+                width: 100%;
+            }
+
+            #moyori {
+                font-size: 15px;
+                display: none;
+                color: white;
+            }
+
+            .sb-search {
+                margin-top: 0;
+                margin-bottom: 10px;
+                width: -moz-fit-content;
+            }
+        }
+
+        @media screen and (min-width:1000px) {
+            .title {
+                display: flex;
+                justify-content: space-between
+            }
+
+        }
+
+        #moyori {
+            padding: 0px 18px;
+            display: none;
+            color: white;
+            background-color: #3EA6B2;
+            line-height: 52px;
+            border-radius: 15px;
+        }
+
+        .background {
+            fill: skyblue;
+            opacity: 0.5;
+            pointer-events: all;
+            width: 100%;
+            height: 100%;
+        }
+
+        .feature {
+            fill: #ccc;
+            cursor: pointer;
+        }
+
+        .feature.active {
+            stroke: orange;
+        }
+
+        .mesh {
+            fill: none;
+            stroke: #fff;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
+        #tooltip-container {
+            position: absolute;
+            background-color: #fff;
+            color: #000;
+            padding: 10px;
+            border: 1px solid;
+            display: none;
+            z-index: 100;
+
+        }
+
+
+        .toolbar {
+            /* margin: 0% 10%; */
+            /* >>>>>>>Stashed changes display: flex; */
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            position: fixed;
+            z-index: 10;
+            bottom: 0;
+            width: 100%;
+        }
+
+        .toolbar button {
+            background-color: #84B23E;
+            color: #FFF;
+            font-size: 1em;
+            letter-spacing: 0.05em;
+            padding: 0.2em 1em;
+            line-height: -mozblock-height;
+            border-radius: 3px;
+            cursor: pointer;
+            box-shadow: 0 2px 2px 0 rgba(0, 0, 0, 0.14), 0 1px 5px 0 rgba(0, 0, 0, 0.12), 0 3px 1px -2px rgba(0, 0, 0, 0.2);
+            -webkit-tap-highlight-color: transparent;
+            transition: .3s ease-out;
+        }
+
+        .toolbar button:hover {
+            box-shadow: 0 3px 3px 0 rgba(0, 0, 0, 0.14), 0 1px 7px 0 rgba(0, 0, 0, 0.12), 0 3px 1px -1px rgba(0, 0, 0, 0.2);
+            /*浮き上がるように*/
+        }
+
+        .buttons {
+            margin-left: 10%;
+            display: flex;
+            font-size: 25px;
+        }
+
+        #gpsButton {
+            background-color: #3EA6B2;
+            width: 52px;
+            height: 52px;
+            padding: 2px;
+        }
+
+        #gpsButton img {
+            width: 45px;
+            height: 45px;
+        }
+
+        .timeInputForm {
+            margin-right: 10%;
+            display: flex;
+        }
+
+        #slideBarTime {
+            margin: 0px 10px;
+            display: inline-block;
+            padding-top: 5px
+        }
+
+        #timeBar {
+            -webkit-appearance: none;
+            appearance: none;
+            background-color: #eaeaea;
+            height: 2px;
+            border-radius: 6px;
+            cursor: pointer;
+            margin-bottom: 8px;
+        }
+
+        #timeBar:focus,
+        #timeBar:active {
+            outline: none;
+        }
+
+        #timeBar::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            cursor: pointer;
+            position: relative;
+            width: 22px;
+            height: 22px;
+            display: block;
+            background-color: #84B23E;
+            border-radius: 50%;
+            -webkit-border-radius: 50%;
+        }
+
+        #timeShow {
+            font-size: 30px;
+        }
+
+        #inputTime,
+        #inputGo,
+        #timeBarButton {
+            height: 26px
+        }
+
+        @media screen and (max-width:1000px) {
+            .toolbar {
+                order: 2;
+                flex-direction: column;
+                /* bottom: 0; */
+                bottom: 10%;
+                position: absolute;
+                width: -moz-fit-content;
+            }
+
+            #toolBarSvgMap {
+                margin-top: 80px;
+                display: flex;
+                flex-direction: column;
+                width: 100%;
+                height: 100%;
+                position: absolute;
+            }
+
+            .timeInputForm {
+                flex-direction: column;
+                margin-left: 10%;
+            }
+
+            #inputTime {
+                height: 52px
+            }
+
+            #slideBarTime {
+                width: -moz-max-content;
+            }
+
+            #zoomIn,
+            #zoomOut,
+            .resetButton {
+                display: none;
+            }
+        }
