@@ -1,0 +1,471 @@
+<!-- 最終更新　12/05 -->
+<!DOCTYPE html>
+<html>
+
+<head>
+
+    <meta charset="utf-8" name="viewport" content="width=device-width,initial-scale=1.0,minimum-scale=1.0,maximum-scale=1.0,user-scalable=no">
+    <title>しゅうでん！ | あなたは終電、間に合いますか？</title>
+    <script src="https://use.typekit.net/fya1swr.js"></script>
+    <script src="https://d3js.org/d3.v4.min.js"></script>
+    <script src="https://d3js.org/topojson.v1.min.js"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.3/jquery.min.js"></script>
+    <link rel="stylesheet" type="text/css" href="./src/main.css" />
+    <link rel="stylesheet" type="text/css" href="./src/searchBox.css">
+</head>
+
+<body>
+    <!-- App Bar -->
+    <div class="title">
+        <div class="icons">
+            <img src="./img/icons8-subway-96.png" alt="search_last_train">
+            <h1>しゅうでん！</h1>
+        </div>
+        <div id="sb-search" class="sb-search">
+            <form action="#">
+                <input class="sb-search-input " placeholder="出発駅を選択..." type="search" value="" name="search" id="search">
+                <input class="sb-search-submit" id="dummy" type="button" value="" style="border-radius: 25px" onclick="buttonUp();">
+                <span class="sb-icon-search"><img src="./img/icons8-search-480.png" width="60px" height="60px"></span>
+            </form>
+        </div>
+    </div>
+    <!-- /App Bar -->
+
+    <script src="./src/gps.js"></script>
+
+    <script src="./src/searchBox.js"></script>
+
+    <!-- ホバー時に表示されるポップアップ -->
+    <div id="tooltip-container"></div>
+    <!-- /ホバー時に表示されるポップアップ -->
+
+    <div id="toolBarSvgMap">
+        <div class="toolbar">
+            <div class="buttons">
+                <button id="gpsButton" onclick="gpsSearch()"><img src="./img/gps-circle.png" /></button>
+                <span id="moyori"></span><br />
+                <button id="zoomIn" onclick="zoomButton(this)"> + </button>
+                <button id="zoomOut" onclick="zoomButton(this)"> - </button>
+                <button class="resetButton" onclick="reset()">reset</button>
+            </div>
+            <div class="timeInputForm">
+                <span id="slideBarTime"><input type="range" id="timeBar" class="timeBars" name="timeBar" onchange="timeChangeBar()" /><span id="timeShow" class="timeBars"></span></span>
+                <span id="inputTime" style="display: none"><input id="inputHour" type="number" value="" /><span>時</span><input id="inputMinute" type="number" value="" /><span>分</span></span>
+                <span></span><br />
+                <button id="inputGo" onclick="colorSet()" style="display: none" value="0">検索</button>
+                <button id="timeBarButton" onclick="timeBarSelected()" style="display: none">スライドで時間を指定</button>
+                <button id="timeDesignateButton" onclick="timeDesignateSelected()">入力して時間を指定</button>
+            </div>
+        </div>
+
+        <div id="svgMap"></div>
+
+    </div>
+
+    <script src="./src/inputType.js"></script>
+
+    <!-- D3 -->
+    <script type="text/javascript">
+        var width = screen.width,
+            height = screen.height,
+            active = d3.select(null);
+
+        var hover_smartphone = false;
+
+        var centerPoint = innerWidth > 1000 ? [139.4, 35.5] : [139.4, 35.0]
+        var scaleBywidth = innerWidth > 1000 ? 7000 : 7000
+
+        const projection = d3.geoMercator()
+            .center(centerPoint) // lat and long
+            .translate([width / 2, height / 2])
+            .scale(scaleBywidth)
+
+        var zoom = d3.zoom()
+            .scaleExtent([1, 100])
+            .on("zoom", zoomed);
+
+        var path = d3.geoPath()
+            .projection(projection);
+
+        var svg = d3.select("#svgMap").append("svg")
+            .attr("width", function(d) {
+                return screen.width;
+            })
+            .attr("height", function(d) {
+                return screen.height;
+            })
+            .attr("class", "canvas")
+            .on("click", stopped, true);
+
+        var csvData
+
+        svg.append("rect")
+            .attr("class", "background")
+            .attr("width", function(d) {
+                return screen.width;
+            })
+            .attr("height", function(d) {
+                return screen.height;
+            })
+            .on("click", reset);
+
+        svg.call(zoom)
+
+        var g = svg.append("g").attr("id", "japan");
+        var g2 = svg.append("g").attr("id", "station");
+        var g3 = svg.append("g").attr("id", "voronoi");
+
+        var japanData, stationData, railData
+
+        var stationPositions = [];
+        var location2station = {};
+
+        var startStation = "";
+
+        var station2leave = {}; //csv data origin(for hover information)
+        var station2arrive = {};
+        var station2time = {};
+
+        var leaveTimeHash = {};
+        var color = d3.scaleLinear().domain([0, 60]).range([0, 255]);
+
+        d3.json("./src/station.topojson", function(error, station) {
+            d3.json("./src/japan.topojson", function(error2, japan) {
+                d3.json("./src/railroad.topojson", function(error3, railroad) {
+                    if (error || error2 || error3) throw error;
+
+                    stationData = station;
+                    japanData = japan;
+                    railData = railroad;
+
+                    var pointdata = topojson.feature(station, station.objects.stationSection).features
+                    pointdata.forEach(d => {
+                        var lat = 0,
+                            long = 0
+                        var length = d.geometry.coordinates.length
+                        for (var i = 0; i < length; i++) {
+                            lat += d.geometry.coordinates[i][0]
+                            long += d.geometry.coordinates[i][1]
+                        }
+                        stationPositions.push(projection([lat / length, long / length]))
+                        location2station[projection([lat / length, long / length])] = d.properties.N02_005
+                    })
+
+
+                    g.selectAll("path")
+                        .data(topojson.feature(japan, japan.objects.japan).features)
+                        .enter().append("path")
+                        .attr("d", path)
+                        .attr("class", "feature")
+
+                    g.append("path")
+                        .datum(topojson.mesh(japan, japan.objects.japan, function(a, b) {
+                            return a !== b;
+                        }))
+                        .attr("class", "mesh")
+                        .attr("stroke-width", 0.2)
+                        .attr("d", path);
+
+                    g2.append("g")
+                        .selectAll("circle")
+                        .data(stationPositions)
+                        .enter()
+                        .append("circle")
+                        .attr("transform", d => {
+                            return `translate(${d[0]}, ${d[1]})`
+                        })
+                        .attr("r", 2)
+                        .attr("fill", "brown")
+                        .attr("fill-opacity", 0.5)
+                    rail2color = {
+                        "山手線": "#80c241",
+                        "11号線半蔵門線": "#9b7cb6",
+                        "4号線丸ノ内線": "#e60012",
+                        "4号線丸ノ内線分岐線": "#e60012",
+                        "9号線千代田線": "#009944",
+                        "10号線新宿線": "#6cbb5a",
+                        "12号線大江戸線": "#b6007a",
+                        "13号線副都心線": "#bb641d",
+                        "1号線浅草線": "#e85298",
+                        "2号線日比谷線": "#9caeb7",
+                        "3号線銀座線": "#f39700",
+                        "5号線東西線": "#00a7db",
+                        "6号線三田線": "#0079c2",
+                        "7号線南北線": "00ada9",
+                        "8号線有楽町線": "#d7c447",
+                        "赤羽線（埼京線）": "#00b48d",
+                        "東北線（埼京線）": "#00b48d",
+                        "根岸線": "#00B2E5",
+                        "東北線": "#00B2E5",
+                        "中央線": "#F15A22",
+                        "総武線": "#FFD400",
+                        "常磐線": "#00b261",
+                        "田園都市線": "#20a288",
+                        "小田原線": "#3B3A7F",
+                        "東上本線": "#009",
+                        "新宿線": "#0099cc",
+                        "東京臨海新交通臨海線": "#27404E",
+                        "りんかい線": "#f68b1e",
+                        "東海道線": "#F68B1E",
+                        "伊東線": "#F68B1E",
+                        "京葉線": "#C9242F",
+                        "井の頭線": "#CA2D73",
+                        "武蔵野線": "#F15A22",
+                        "京王線": "#CA2D73",
+                        "亀戸線": "#0f6cc3",
+                        "伊勢崎線": "red",
+                        "日光線": "orange",
+                        "宇都宮線": "orange",
+                        "鬼怒川線": "orange",
+                        "野田線": "#33cccc",
+                        "東横線": "#da0442",
+                        "目黒線": "#009cd2",
+                        "大井町線": "#f18c43",
+                        "池上線": "ee86a7",
+                        "東急多摩川線": "#ae0378",
+                        "こどもの国線": "#0068b7",
+                        "世田谷線": "#fcc70d",
+                        "みなとみらい線": "#09357f"
+                    }
+                    g2.selectAll("path")
+                        .data(topojson.feature(railroad, railroad.objects.railRoadSection).features)
+                        .enter()
+                        .append("path")
+                        .attr("d", path)
+                        .attr("fill", "none")
+                        .attr("stroke", function(d) {
+                            railcolor = rail2color[d.properties.N02_003];
+                            if (!railcolor) {
+                                railcolor = "#3e393a";
+                            }
+                            return railcolor;
+                        })
+
+                    g3.selectAll(".cell").remove()
+
+                    // voronoi図
+                    var leftTop = projection([138.12, 37.4]),
+                        rightBottom = projection([141, 34.3])
+                    var voronoi = d3.voronoi().extent([leftTop, rightBottom])
+                    var polygons = voronoi(stationPositions).polygons()
+
+                    var cells = g3.append("g").selectAll(".cell")
+                        .data(polygons)
+                        .enter()
+                        .append("path")
+                        .attr("class", "cell")
+                        .attr("fill", "none")
+                        .attr("fill-opacity", "0.5")
+                        .attr("d", d => {
+                            if (!d) return;
+
+                            return `M${d.join("L")}Z`
+                        })
+                        .on("mousemove",
+                            function(d) {
+                                var html = "";
+                                var time = station2time[location2station[d.data]];
+                                var leave = station2leave[location2station[d.data]];
+                                var arrive = station2arrive[location2station[d.data]];
+
+                                html += "<div class=\"tooltip_kv\">";
+
+                                html += "<span class=\"tooltip_key\">";
+                                html += "<p style='font-size:16px;'>";
+                                html += startStation + "→" + location2station[d.data] + "<br>";
+                                html += leave + "発 " + arrive + "着";
+                                if (screen.width < 1000) {
+                                    html += "</br>";
+                                } else {
+                                    html += " "
+                                }
+                                html += "所要時間" + time;
+
+                                if (screen.width < 1000) {
+                                    var url = "https://transit.yahoo.co.jp/search/result?flatlon=&from=" + startStation + "&tlatlon=&to=" + location2station[d.data] + "&viacode=&via=&viacode=&via=&viacode=&via=&y=" + now.getFullYear() +
+                                        "&m=" + (now.getMonth() + 1) + "&d=" + now.getDate() + "&hh=14&m2=8&m1=3&type=2&ticket=ic&expkind=1&ws=3&s=0&al=1&shin=1&ex=1&hb=1&lb=1&sr=1&kw=" + location2station[d.data];
+                                    html += "</br><a href=" + url + " target='_blank'>詳細はこちら</a>";
+                                }
+                                html += "</p>"
+                                html += "</span>";
+                                html += "</div>";
+
+                                $("#tooltip-container").html(html);
+                                $(this).attr("fill-opacity", "0.7");
+                                $("#tooltip-container").show();
+                                hover_smartphone = true;
+
+                                var coordinates = d3.mouse(this);
+                                var tooltip_width = $("#tooltip-container").width();
+
+                                if (d3.event.layerX + tooltip_width + 30 < screen.width) {
+                                    d3.select("#tooltip-container")
+                                        .style("top", (d3.event.layerY + 15) + "px")
+                                        .style("left", (d3.event.layerX + 15) + "px");
+                                } else {
+                                    d3.select("#tooltip-container")
+                                        .style("top", (d3.event.layerY + 15) + "px")
+                                        .style("left", (d3.event.layerX - 15 - tooltip_width) + "px");
+                                }
+
+                            })
+                        .on("mouseout", function() {
+                            $(this).attr("fill-opacity", "0.5");
+                            $("#tooltip-container").hide();
+                        })
+                        .on("click", function(d) {
+
+                            var url = "https://transit.yahoo.co.jp/search/result?flatlon=&from=" + startStation + "&tlatlon=&to=" + location2station[d.data] + "&viacode=&via=&viacode=&via=&viacode=&via=&y=" + now.getFullYear() +
+                                "&m=" + (now.getMonth() + 1) + "&d=" + now.getDate() + "&hh=14&m2=8&m1=3&type=2&ticket=ic&expkind=1&ws=3&s=0&al=1&shin=1&ex=1&hb=1&lb=1&sr=1&kw=" + location2station[d.data];
+                            window.open(url);
+
+                        })
+                })
+            })
+        })
+
+
+        function afterSearch() {
+            if (startStation === document.getElementById("dummy").value) {
+                return;
+            }
+            startStation = document.getElementById("dummy").value
+            console.log(startStation);
+            d3.csv(`./lib/${startStation}.csv`, function(error, data) {
+                if (error) alert("お探しの駅は見つかりませんでした。")
+                csvData = data
+                colorSet()
+            })
+            if (screen.width < 1000) {
+                $("#moyori").hide();
+            }
+        }
+
+        function colorSet() {
+            var baseTime
+            if (document.getElementById("inputGo").value === "0") {
+                baseTime = parseInt(document.getElementById("timeBar").value)
+            } else if (document.getElementById("inputGo").value === "1") {
+                var hour = parseInt(document.getElementById("inputHour").value) >= 7 ? parseInt(document.getElementById("inputHour").value) : parseInt(document.getElementById("inputHour").value) + 24
+                baseTime = hour * 60 + parseInt(document.getElementById("inputMinute").value)
+            } else {
+                console.error("inputGo Error");
+            }
+            if (!baseTime) {
+                console.error("BaseTime Error");
+            }
+
+            csvData.forEach((d) => {
+                var hour = parseInt(d.leave.slice(0, 2))
+                if (hour === 0) hour = 24;
+                if (hour === 1) hour = 25;
+                var tmp = parseInt(hour) * 60 + parseInt(d.leave.slice(-2));
+                station2arrive[d.to] = d.arrive;
+                station2leave[d.to] = d.leave;
+                station2time[d.to] = d.time;
+                tmp -= baseTime;
+                leaveTimeHash[d.to] = tmp;
+            })
+            g3.selectAll(".cell")
+                .attr("fill", function(d) {
+                    if (!d) {
+                        return "none";
+                    }
+                    // count++
+                    var name = location2station[d.data]
+                    console.log("loading...");
+                    if (leaveTimeHash[name] > 0) {
+                        return "rgb(255," + Math.floor(color(leaveTimeHash[name])) + "," + Math.floor(color(leaveTimeHash[name])) + ")"
+                    } else if (leaveTimeHash[name]) {
+                        return "black";
+                    } else {
+                        return "none"
+                    }
+                })
+        }
+
+
+        function clicked(d) {
+            var self = this
+            var data = d
+            var p1 = new Promise(function() {
+                if (active.node() === self) return reset();
+                active.classed("active", false);
+                active = d3.select(self).classed("active", true);
+
+                var bounds = path.bounds(data),
+                    dx = bounds[1][0] - bounds[0][0],
+                    dy = bounds[1][1] - bounds[0][1],
+                    x = (bounds[0][0] + bounds[1][0]) / 2,
+                    y = (bounds[0][1] + bounds[1][1]) / 2,
+                    scale = Math.max(1, Math.min(50, 0.9 / Math.max(dx / width, dy / height))),
+                    translate = [width / 2 - scale * x, height / 2 - scale * y];
+
+                svg.transition()
+                    .duration(750)
+                    .call(zoom.transform, d3.zoomIdentity.translate(translate[0], translate[1]).scale(scale))
+            })
+        }
+
+        function reset() {
+            active.classed("active", false);
+            active = d3.select(null);
+
+            svg.selectAll("path")
+                .data(topojson.feature(japanData, japanData.objects.japan).features)
+                .enter()
+
+            g3.selectAll(".cell").attr("fill", "none")
+
+            d3.selectAll(".sb-search-submit").attr("z-index", 99)
+
+            svg.transition()
+                .duration(750)
+                .call(zoom.transform, d3.zoomIdentity)
+        }
+
+        function zoomed() {
+            g.style("stroke-width", 0.5 / d3.event.transform.k + "px");
+            g.attr("transform", d3.event.transform)
+            g2.selectAll("circle").attr("r", 1.5 / d3.event.transform.k + "px");
+            g2.style("stroke-width", 1 / d3.event.transform.k + "px");
+            g2.attr("transform", d3.event.transform)
+            g3.style("stroke-width", 0.5 / d3.event.transform.k + "px")
+            g3.attr("transform", d3.event.transform)
+        }
+
+        function stopped() {
+            if (d3.event.defaultPrevented) d3.event.stopPropagation();
+        }
+
+        var timeBar = document.getElementById("timeBar")
+        var showTime = document.getElementById("timeShow")
+        var now = new Date()
+        var hour = now.getHours() >= 7 ? now.getHours() : now.getHours() + 24
+        var minute = now.getMinutes()
+        var minute2 = ('00' + minute).slice(-2)
+
+        showTime.innerHTML = `${hour}` + ":" + `${minute2}`
+        timeBar.max = hour * 60 + minute + 60
+        timeBar.min = hour * 60 + minute - 60
+        timeBar.value = hour * 60 + minute
+
+        function timeChangeBar() {
+            var value = timeBar.value
+            var m0 = ('000' + parseInt(value % 60).toString()).slice(-2);
+            var input = `${parseInt(parseInt(value)/60)}` + ":" + `${m0}`
+            showTime.innerHTML = input
+            colorSet()
+        }
+
+        function zoomButton(obj) {
+            var scale = 1.6471820345351462
+            if (obj.id === "zoomOut") scale = 1 / scale
+            zoom.scaleBy(g.transition().duration(750), scale)
+            zoom.scaleBy(g2.transition().duration(750), scale)
+            zoom.scaleBy(g3.transition().duration(750), scale)
+        }
+    </script>
+
+</body>
+</html>
