@@ -684,7 +684,7 @@
             }
             startStation = document.getElementById("dummy").value
             console.log(startStation);
-            d3.csv(`./data/${startStation}.csv`, function(error, data) {
+            d3.csv(`./lib/${startStation}.csv`, function(error, data) {
                 if (error) alert("お探しの駅は見つかりませんでした。")
                 csvData = data
                 colorSet()
